@@ -14,10 +14,9 @@ Classes:
 ...
 """
 
-import errno
-import os
 
-import numpy as np
+import json
+import random
 
 import psychopy
 
@@ -28,82 +27,59 @@ class ResolutionWR(template.BaseExperiment):
     """
     ...
     """
-    def __init__():
+    def __init__(self, set_sizes, trials_per_set_size, distance_from_fixation, colorwheel_path):
         """
         ...
         """
+        self.set_sizes = set_sizes
+        self.trials_per_set_size = trials_per_set_size
+
+        self.distance_from_fixation = distance_from_fixation
+
+        self.color_wheel = self._load_color_wheel(colorwheel_path)
+
+    def _load_color_wheel(self, path):
+        with open(path) as f:
+            color_wheel = json.load(f)
+
+        return color_wheel
+
+    def _calculate_locations(self):
         pass
 
-    def chdir(self):
-        """Changes the directory to where the data will be saved.
-        """
+    def make_trial(self, set_size):
+        color_indexes = [random.randint(0, 359) for _ in range(set_size)]
+        color_values = [self.color_wheel[i] for i in color_indexes]
+        wheel_rotations = [random.randint(0, 359) for _ in range(set_size)]
 
-        try:
-            os.makedirs(self.data_directory)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
+        trial = {
+            'set_size': set_size,
+            'color_indexes': color_indexes,
+            'color_values': color_values,
+            'wheel_rotations': wheel_rotations
+        }
 
-        os.chdir(self.data_directory)
+        return trial
 
     def make_block(self):
-        pass
+        """Makes a block of trials.
 
-    def _too_close(self, attempt, locs):
-        """Checks that an attempted location is valid.
-
-        This method is used by generate_locations to ensure the min_distance condition is followed.
-
-        Parameters:
-        attempt -- A list of two values (x,y) in visual angle.
-        locs -- A list of previous successful attempts to be checked.
-        """
-        if np.linalg.norm(np.array(attempt)) < self.min_distance:
-            return True  # Too close to center
-
-        for loc in locs:
-            if np.linalg.norm(np.array(attempt) - np.array(loc)) < self.min_distance:
-                return True  # Too close to another square
-
-        return False
-
-    def generate_locations(self):
-        pass
-
-    def make_trial(self):
-        pass
-
-    def display_break(self):
-        """Displays a break screen in between blocks.
+        Returns a shuffled list of trials created by self.make_trial.
         """
 
-        break_text = 'Please take a short break. Press space to continue.'
-        self.display_text_screen(text=break_text, bg_color=[204, 255, 204])
+        trial_list = []
 
-    def display_fixation(self, wait_time):
-        """Displays a fixation cross. A helper function for self.run_trial.
+        for set_size in self.set_sizes:
+            for _ in range(self.trials_per_set_size):
+                trial = self.make_trial(set_size)
+                trial_list.append(trial)
 
-        Parameters:
-        wait_time -- The amount of time the fixation should be displayed for.
-        """
+        random.shuffle(trial_list)
 
-        psychopy.visual.TextStim(
-            self.experiment_window, text='+', color=[-1, -1, -1]).draw()
-        self.experiment_window.flip()
+        return trial_list
 
-        psychopy.core.wait(wait_time)
 
-    def display_stimuli(self):
-        pass
+o = ResolutionWR(
+    set_sizes=[4, 6, 8], trials_per_set_size=5, distance_from_fixation=2,
+    colorwheel_path='colors.json')
 
-    def display_test(self):
-        pass
-
-    def get_response(self):
-        pass
-
-    def run_trial(self):
-        pass
-
-    def run(self):
-        pass
