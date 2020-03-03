@@ -19,6 +19,8 @@ import json
 import math
 import random
 
+import numpy as np
+
 import psychopy
 
 import template as template
@@ -53,7 +55,7 @@ class ResolutionWR(template.BaseExperiment):
 
         color_wheel = [template.convert_color_value(i) for i in color_wheel]
 
-        return color_wheel
+        return np.array(color_wheel)
 
     def calculate_locations(self, set_size):
         angle_dist = 360 / set_size
@@ -141,10 +143,30 @@ class ResolutionWR(template.BaseExperiment):
 
         psychopy.core.wait(self.sample_time)
 
+    def draw_color_wheels(self, coordinates, wheel_rotations):
+        mask = np.zeros([100, 1])
+        mask[-10:] = 1
+
+        for pos, rot in zip(coordinates, wheel_rotations):
+            rotated_wheel = np.roll(self.color_wheel, rot, axis=0)
+            tex = np.repeat(rotated_wheel[np.newaxis, :, :], 360, 0)
+
+            psychopy.visual.RadialStim(
+                self.experiment_window, tex=tex, mask=mask, pos=pos, angularRes=256,
+                angularCycles=1, interpolate=True).draw()
+
+    def get_response(self, coordinates, wheel_rotations):
+        self.draw_color_wheels(coordinates, wheel_rotations)
+
+        self.experiment_window.flip()
+
+        psychopy.core.wait(6)
+
     def run_trial(self, trial):
         self.display_blank(1)
         self.display_stimuli(trial['locations'], trial['color_values'])
         self.display_blank(1)
+        self.get_response(trial['locations'], trial['wheel_rotations'])
 
     def run(self):
         self.open_window(screen=0)
