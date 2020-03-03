@@ -41,6 +41,8 @@ class ResolutionWR(template.BaseExperiment):
         self.distance_from_fixation = distance_from_fixation
         self.stim_size = stim_size
 
+        self.mouse = None
+
         self.min_color_dist = min_color_dist
 
         self.sample_time = sample_time
@@ -145,7 +147,7 @@ class ResolutionWR(template.BaseExperiment):
 
     def draw_color_wheels(self, coordinates, wheel_rotations):
         mask = np.zeros([100, 1])
-        mask[-10:] = 1
+        mask[-30:] = 1
 
         for pos, rot in zip(coordinates, wheel_rotations):
             rotated_wheel = np.roll(self.color_wheel, rot, axis=0)
@@ -153,14 +155,63 @@ class ResolutionWR(template.BaseExperiment):
 
             psychopy.visual.RadialStim(
                 self.experiment_window, tex=tex, mask=mask, pos=pos, angularRes=256,
-                angularCycles=1, interpolate=True).draw()
+                angularCycles=1, interpolate=False, size=self.stim_size * 2).draw()
+
+    def calc_mouse_color(self, mouse_pos):
+        frame = np.array(self.experiment_window._getFrame())  # Uses psychopy internal function
+
+        x_correction = self.experiment_window.size[0] / 2
+        y_correction = self.experiment_window.size[1] / 2
+
+        x = int(psychopy.tools.monitorunittools.deg2pix(mouse_pos[0], self.experiment_monitor) + x_correction)
+        y = self.experiment_window.size[1] - int(psychopy.tools.monitorunittools.deg2pix(mouse_pos[1], self.experiment_monitor) + y_correction)
+
+        try:
+            color = frame[y, x, :]
+        except IndexError:
+            color = None
+
+        return color
+
+    def calc_preview_position(self, coordinates, mouse_pos):
+        dists = [np.linalg.norm(np.array(i) - np.array(mouse_pos) / 2) for i in coordinates]
+        return coordinates[np.argmin(dists)]
 
     def get_response(self, coordinates, wheel_rotations):
         self.draw_color_wheels(coordinates, wheel_rotations)
 
         self.experiment_window.flip()
 
-        psychopy.core.wait(6)
+        if not self.mouse:
+            self.mouse = psychopy.event.Mouse(visible=False, win=self.experiment_window)
+
+        self.mouse.setVisible(1)
+        self.mouse.clickReset()
+
+        temp_coordinates = coordinates
+
+        while True:
+            self.draw_color_wheels(temp_coordinates, wheel_rotations)
+
+            lclick, _, _ = self.mouse.getPressed()
+
+            mouse_pos = self.mouse.getPos()
+            px_color = self.calc_mouse_color(mouse_pos)
+
+            if px_color is not None and not np.array_equal(px_color, np.array([128, 128, 128])):
+                preview_pos = self.calc_preview_position(temp_coordinates, mouse_pos)
+
+                psychopy.visual.Circle(
+                    self.experiment_window, radius=self.stim_size / 2, pos=preview_pos,
+                    fillColor=template.convert_color_value(px_color), units='deg',
+                    lineColor=None).draw()
+
+            self.experiment_window.flip()
+
+
+
+
+        self.mouse.setVisible(0)
 
     def run_trial(self, trial):
         self.display_blank(1)
@@ -179,7 +230,7 @@ class ResolutionWR(template.BaseExperiment):
 
 
 o = ResolutionWR(
-    set_sizes=[1, 2, 4, 6, 8], trials_per_set_size=5, distance_from_fixation=8,
+    set_sizes=[5], trials_per_set_size=5, distance_from_fixation=8,
     colorwheel_path='colors.json', stim_size=1.5, sample_time=2, min_color_dist=25,
     experiment_name='ResolutionWR', data_fields=[], monitor_distance=90)
 o.run()
