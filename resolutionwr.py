@@ -41,6 +41,7 @@ data_fields = [
     'LocationNumber',
     'ClickNumber',
     'Timestamp',
+    'SetSize',
     'LocationX',
     'LocationY',
     'ColorIndex',
@@ -88,13 +89,14 @@ class ResolutionWR(template.BaseExperiment):
     """
     ...
     """
-    def __init__(self, set_sizes, trials_per_set_size, distance_from_fixation, min_color_dist,
+    def __init__(self, set_sizes, trials_per_set_size, number_of_blocks, distance_from_fixation, min_color_dist,
                  colorwheel_path, stim_size, sample_time, data_directory, questionaire_dict, **kwargs):
         """
         ...
         """
         self.set_sizes = set_sizes
         self.trials_per_set_size = trials_per_set_size
+        self.number_of_blocks = number_of_blocks
 
         self.distance_from_fixation = distance_from_fixation
         self.stim_size = stim_size
@@ -317,8 +319,13 @@ class ResolutionWR(template.BaseExperiment):
         if row_index.shape[0] < 1:
             return None  # if empty, return None
 
-        error_raw = abs(color_index - row_index[0])
-        error = min(error_raw, 360 - error_raw)
+        raw_error = row_index[0] - color_index
+        if raw_error >= -180 and raw_error <= 180:
+            error = raw_error
+        elif raw_error < -180:
+            error = 360 + raw_error
+        else:
+            error = raw_error - 360
 
         return error
 
@@ -350,6 +357,7 @@ class ResolutionWR(template.BaseExperiment):
                 'LocationNumber': i + 1,
                 'ClickNumber': click,
                 'Timestamp': timestamp,
+                'SetSize': trial['set_size'],
                 'LocationX': trial['locations'][i][0],
                 'LocationY': trial['locations'][i][1],
                 'ColorIndex': trial['color_indexes'][i],
@@ -375,17 +383,22 @@ class ResolutionWR(template.BaseExperiment):
         self.open_window(screen=0)
         self.display_text_screen('Loading...', wait_for_input=False)
 
-        block = self.make_block()
+        for block_num in range(self.number_of_blocks):
+            block = self.make_block()
+            for trial_num, trial in enumerate(block):
+                data = self.run_trial(trial, block_num, trial_num)
+                self.send_data(data)
+            self.save_data_to_csv()
 
-        data = self.run_trial(block[0], 0, 0)
-        self.send_data(data)
-        self.save_data_to_csv()
+        self.display_text_screen(
+            'The experiment is now over, please get your experimenter.',
+            bg_color=[0, 0, 255], text_color=[255, 255, 255])
 
         self.quit_experiment()
 
 
 o = ResolutionWR(
-    set_sizes=[5], trials_per_set_size=5, distance_from_fixation=8,
+    set_sizes=[1, 4], trials_per_set_size=5, number_of_blocks=2, distance_from_fixation=8,
     colorwheel_path='colors.json', stim_size=1.5, sample_time=2, min_color_dist=25,
     questionaire_dict=questionaire_dict, data_directory=data_directory,
     experiment_name='ResolutionWR', data_fields=data_fields, monitor_distance=90)
