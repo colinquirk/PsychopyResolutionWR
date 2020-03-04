@@ -191,11 +191,15 @@ class ResolutionWR(template.BaseExperiment):
         temp_rotations = copy.copy(wheel_rotations)
 
         resp_colors = [0] * len(coordinates)
+        rts = [0] * len(coordinates)
+
+        self.mouse.clickReset()
+
+        self.draw_color_wheels(temp_coordinates, temp_rotations)
+        self.experiment_window.flip()
 
         while True:
-            self.draw_color_wheels(temp_coordinates, temp_rotations)
-
-            lclick, _, _ = self.mouse.getPressed()
+            (lclick, _, _), (rt, _, _) = self.mouse.getPressed(getTime=True)
 
             mouse_pos = self.mouse.getPos()
             px_color = self._calc_mouse_color(mouse_pos)
@@ -205,42 +209,40 @@ class ResolutionWR(template.BaseExperiment):
 
                 if preview_pos:
                     if lclick:
-                        color_index = coordinates.index(preview_pos)
-                        resp_colors[color_index] = px_color
+                        resp_colors[coordinates.index(preview_pos)] = px_color
+                        rts[coordinates.index(preview_pos)] = rt
+
                         del temp_rotations[temp_coordinates.index(preview_pos)]
                         temp_coordinates.remove(preview_pos)
 
                         if not temp_coordinates:
-                            return resp_colors
+                            return resp_colors, rts
                     else:
                         psychopy.visual.Circle(
                             self.experiment_window, radius=self.stim_size / 2, pos=preview_pos,
                             fillColor=template.convert_color_value(px_color), units='deg',
                             lineColor=None).draw()
 
+            self.draw_color_wheels(temp_coordinates, temp_rotations)
             self.experiment_window.flip()
 
     def get_response(self, coordinates, wheel_rotations):
-        self.draw_color_wheels(coordinates, wheel_rotations)
-
-        self.experiment_window.flip()
-
         if not self.mouse:
             self.mouse = psychopy.event.Mouse(visible=False, win=self.experiment_window)
 
         self.mouse.setVisible(1)
-        self.mouse.clickReset()
 
-        resp_colors = self._response_loop(coordinates, wheel_rotations)
+        resp_colors, rts = self._response_loop(coordinates, wheel_rotations)
 
         self.mouse.setVisible(0)
 
-        return resp_colors
+        return resp_colors, rts
 
     def run_trial(self, trial):
         self.display_blank(1)
         self.display_stimuli(trial['locations'], trial['color_values'])
         self.display_blank(1)
+        self.get_response(trial['locations'], trial['wheel_rotations'])
 
     def run(self):
         self.open_window(screen=0)
