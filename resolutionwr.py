@@ -15,6 +15,7 @@ Classes:
 """
 
 
+import copy
 import json
 import math
 import random
@@ -24,6 +25,9 @@ import numpy as np
 import psychopy
 
 import template as template
+
+
+psychopy.logging.console.setLevel(psychopy.logging.CRITICAL)  # Avoid error output
 
 
 class ResolutionWR(template.BaseExperiment):
@@ -157,7 +161,7 @@ class ResolutionWR(template.BaseExperiment):
                 self.experiment_window, tex=tex, mask=mask, pos=pos, angularRes=256,
                 angularCycles=1, interpolate=False, size=self.stim_size * 2).draw()
 
-    def calc_mouse_color(self, mouse_pos):
+    def _calc_mouse_color(self, mouse_pos):
         frame = np.array(self.experiment_window._getFrame())  # Uses psychopy internal function
 
         x_correction = self.experiment_window.size[0] / 2
@@ -173,9 +177,48 @@ class ResolutionWR(template.BaseExperiment):
 
         return color
 
-    def calc_preview_position(self, coordinates, mouse_pos):
+    def _calc_mouse_position(self, coordinates, mouse_pos):
         dists = [np.linalg.norm(np.array(i) - np.array(mouse_pos) / 2) for i in coordinates]
-        return coordinates[np.argmin(dists)]
+        closest_dist = min(dists)
+
+        if closest_dist < 4:
+            return coordinates[np.argmin(dists)]
+        else:
+            return None
+
+    def _response_loop(self, coordinates, wheel_rotations):
+        temp_coordinates = copy.copy(coordinates)
+        temp_rotations = copy.copy(wheel_rotations)
+
+        resp_colors = [0] * len(coordinates)
+
+        while True:
+            self.draw_color_wheels(temp_coordinates, temp_rotations)
+
+            lclick, _, _ = self.mouse.getPressed()
+
+            mouse_pos = self.mouse.getPos()
+            px_color = self._calc_mouse_color(mouse_pos)
+
+            if px_color is not None and not np.array_equal(px_color, np.array([128, 128, 128])):
+                preview_pos = self._calc_mouse_position(temp_coordinates, mouse_pos)
+
+                if preview_pos:
+                    if lclick:
+                        color_index = coordinates.index(preview_pos)
+                        resp_colors[color_index] = px_color
+                        del temp_rotations[temp_coordinates.index(preview_pos)]
+                        temp_coordinates.remove(preview_pos)
+
+                        if not temp_coordinates:
+                            return resp_colors
+                    else:
+                        psychopy.visual.Circle(
+                            self.experiment_window, radius=self.stim_size / 2, pos=preview_pos,
+                            fillColor=template.convert_color_value(px_color), units='deg',
+                            lineColor=None).draw()
+
+            self.experiment_window.flip()
 
     def get_response(self, coordinates, wheel_rotations):
         self.draw_color_wheels(coordinates, wheel_rotations)
@@ -188,36 +231,16 @@ class ResolutionWR(template.BaseExperiment):
         self.mouse.setVisible(1)
         self.mouse.clickReset()
 
-        temp_coordinates = coordinates
-
-        while True:
-            self.draw_color_wheels(temp_coordinates, wheel_rotations)
-
-            lclick, _, _ = self.mouse.getPressed()
-
-            mouse_pos = self.mouse.getPos()
-            px_color = self.calc_mouse_color(mouse_pos)
-
-            if px_color is not None and not np.array_equal(px_color, np.array([128, 128, 128])):
-                preview_pos = self.calc_preview_position(temp_coordinates, mouse_pos)
-
-                psychopy.visual.Circle(
-                    self.experiment_window, radius=self.stim_size / 2, pos=preview_pos,
-                    fillColor=template.convert_color_value(px_color), units='deg',
-                    lineColor=None).draw()
-
-            self.experiment_window.flip()
-
-
-
+        resp_colors = self._response_loop(coordinates, wheel_rotations)
 
         self.mouse.setVisible(0)
+
+        return resp_colors
 
     def run_trial(self, trial):
         self.display_blank(1)
         self.display_stimuli(trial['locations'], trial['color_values'])
         self.display_blank(1)
-        self.get_response(trial['locations'], trial['wheel_rotations'])
 
     def run(self):
         self.open_window(screen=0)
