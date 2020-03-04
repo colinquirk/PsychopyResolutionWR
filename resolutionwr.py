@@ -39,12 +39,14 @@ data_fields = [
     'Block',
     'Trial',
     'LocationNumber',
-    'ClickNumber'
+    'ClickNumber',
     'Timestamp',
-    'Location',
+    'LocationX',
+    'LocationY',
     'ColorIndex',
     'TrueColor',
     'RespColor',
+    'Error',
     'RT',
 ]
 
@@ -233,7 +235,8 @@ class ResolutionWR(template.BaseExperiment):
         y_correction = self.experiment_window.size[1] / 2
 
         x = int(psychopy.tools.monitorunittools.deg2pix(mouse_pos[0], self.experiment_monitor) + x_correction)
-        y = self.experiment_window.size[1] - int(psychopy.tools.monitorunittools.deg2pix(mouse_pos[1], self.experiment_monitor) + y_correction)
+        y = (self.experiment_window.size[1] -
+             int(psychopy.tools.monitorunittools.deg2pix(mouse_pos[1], self.experiment_monitor) + y_correction))
 
         try:
             color = frame[y, x, :]
@@ -308,11 +311,55 @@ class ResolutionWR(template.BaseExperiment):
 
         return resp_colors, rts, click_order
 
-    def run_trial(self, trial):
+    def calculate_error(self, color_index, resp_color):
+        row_index = np.where((self.color_wheel == resp_color).all(axis=1))[0]
+
+        if row_index.shape[0] < 1:
+            return None  # if empty, return None
+
+        error_raw = abs(color_index - row_index[0])
+        error = min(error_raw, 360 - error_raw)
+
+        return error
+
+    def send_data(self, data):
+        """Updates the experiment data with the information from the last trial.
+
+        This function is seperated from run_trial to allow additional information to be added
+        afterwards.
+
+        Parameters:
+        data -- A dict where keys exist in data_fields and values are to be saved.
+        """
+        self.update_experiment_data(data)
+
+    def run_trial(self, trial, block_num, trial_num):
         self.display_blank(1)
         self.display_stimuli(trial['locations'], trial['color_values'])
         self.display_blank(1)
-        self.get_response(trial['locations'], trial['wheel_rotations'])
+        resp_colors, rts, click_order = self.get_response(trial['locations'], trial['wheel_rotations'])
+
+        data = []
+        timestamp = psychopy.core.getAbsTime()
+
+        for i, (color, rt, click) in enumerate(zip(resp_colors, rts, click_order)):
+            data.append({
+                'Subject': self.experiment_info['Subject Number'],
+                'Block': block_num,
+                'Trial': trial_num,
+                'LocationNumber': i + 1,
+                'ClickNumber': click,
+                'Timestamp': timestamp,
+                'LocationX': trial['locations'][i][0],
+                'LocationY': trial['locations'][i][1],
+                'ColorIndex': trial['color_indexes'][i],
+                'TrueColor': trial['color_values'][i],
+                'RespColor': template.convert_color_value(color),
+                'Error': self.calculate_error(trial['color_indexes'][i], template.convert_color_value(color)),
+                'RT': rt,
+            })
+
+        return data
 
     def run(self):
         self.chdir()
@@ -330,7 +377,9 @@ class ResolutionWR(template.BaseExperiment):
 
         block = self.make_block()
 
-        self.run_trial(block[0])
+        data = self.run_trial(block[0], 0, 0)
+        self.send_data(data)
+        self.save_data_to_csv()
 
         self.quit_experiment()
 
