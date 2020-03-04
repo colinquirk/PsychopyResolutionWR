@@ -16,9 +16,12 @@ Classes:
 
 
 import copy
+import errno
 import json
 import math
+import os
 import random
+import sys
 
 import numpy as np
 
@@ -26,6 +29,55 @@ import psychopy
 
 import template as template
 
+experiment_name = 'ResolutionWR'
+
+data_directory = os.path.join(
+    os.path.expanduser('~'), 'Desktop', experiment_name, 'Data')
+
+data_fields = [
+    'Subject',
+    'Block',
+    'Trial',
+    'LocationNumber',
+    'ClickNumber'
+    'Timestamp',
+    'Location',
+    'ColorIndex',
+    'TrueColor',
+    'RespColor',
+    'RT',
+]
+
+gender_options = [
+    'Male',
+    'Female',
+    'Other/Choose Not To Respond',
+]
+
+hispanic_options = [
+    'Yes, Hispanic or Latino/a',
+    'No, not Hispanic or Latino/a',
+    'Choose Not To Respond',
+]
+
+race_options = [
+    'American Indian or Alaskan Native',
+    'Asian',
+    'Pacific Islander',
+    'Black or African American',
+    'White / Caucasian',
+    'More Than One Race',
+    'Choose Not To Respond',
+]
+
+# Add additional questions here
+questionaire_dict = {
+    'Session': 1,
+    'Age': 0,
+    'Gender': gender_options,
+    'Hispanic:': hispanic_options,
+    'Race': race_options,
+}
 
 psychopy.logging.console.setLevel(psychopy.logging.CRITICAL)  # Avoid error output
 
@@ -35,7 +87,7 @@ class ResolutionWR(template.BaseExperiment):
     ...
     """
     def __init__(self, set_sizes, trials_per_set_size, distance_from_fixation, min_color_dist,
-                 colorwheel_path, stim_size, sample_time, **kwargs):
+                 colorwheel_path, stim_size, sample_time, data_directory, questionaire_dict, **kwargs):
         """
         ...
         """
@@ -45,7 +97,8 @@ class ResolutionWR(template.BaseExperiment):
         self.distance_from_fixation = distance_from_fixation
         self.stim_size = stim_size
 
-        self.mouse = None
+        self.questionaire_dict = questionaire_dict
+        self.data_directory = data_directory
 
         self.min_color_dist = min_color_dist
 
@@ -53,7 +106,19 @@ class ResolutionWR(template.BaseExperiment):
 
         self.color_wheel = self._load_color_wheel(colorwheel_path)
 
+        self.mouse = None
+
         super().__init__(**kwargs)
+
+    def chdir(self):
+        """Changes the directory to where the data will be saved."""
+        try:
+            os.makedirs(self.data_directory)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
+        os.chdir(self.data_directory)
 
     def _load_color_wheel(self, path):
         with open(path) as f:
@@ -192,6 +257,9 @@ class ResolutionWR(template.BaseExperiment):
 
         resp_colors = [0] * len(coordinates)
         rts = [0] * len(coordinates)
+        click_order = [0] * len(coordinates)
+
+        click = 1
 
         self.mouse.clickReset()
 
@@ -211,12 +279,14 @@ class ResolutionWR(template.BaseExperiment):
                     if lclick:
                         resp_colors[coordinates.index(preview_pos)] = px_color
                         rts[coordinates.index(preview_pos)] = rt
+                        click_order[coordinates.index(preview_pos)] = click
+                        click += 1
 
                         del temp_rotations[temp_coordinates.index(preview_pos)]
                         temp_coordinates.remove(preview_pos)
 
                         if not temp_coordinates:
-                            return resp_colors, rts
+                            return resp_colors, rts, click_order
                     else:
                         psychopy.visual.Circle(
                             self.experiment_window, radius=self.stim_size / 2, pos=preview_pos,
@@ -232,11 +302,11 @@ class ResolutionWR(template.BaseExperiment):
 
         self.mouse.setVisible(1)
 
-        resp_colors, rts = self._response_loop(coordinates, wheel_rotations)
+        resp_colors, rts, click_order = self._response_loop(coordinates, wheel_rotations)
 
         self.mouse.setVisible(0)
 
-        return resp_colors, rts
+        return resp_colors, rts, click_order
 
     def run_trial(self, trial):
         self.display_blank(1)
@@ -245,7 +315,18 @@ class ResolutionWR(template.BaseExperiment):
         self.get_response(trial['locations'], trial['wheel_rotations'])
 
     def run(self):
+        self.chdir()
+
+        ok = self.get_experiment_info_from_dialog(self.questionaire_dict)
+
+        if not ok:
+            print('Experiment has been terminated.')
+            sys.exit(1)
+
+        self.save_experiment_info()
+        self.open_csv_data_file()
         self.open_window(screen=0)
+        self.display_text_screen('Loading...', wait_for_input=False)
 
         block = self.make_block()
 
@@ -257,5 +338,6 @@ class ResolutionWR(template.BaseExperiment):
 o = ResolutionWR(
     set_sizes=[5], trials_per_set_size=5, distance_from_fixation=8,
     colorwheel_path='colors.json', stim_size=1.5, sample_time=2, min_color_dist=25,
-    experiment_name='ResolutionWR', data_fields=[], monitor_distance=90)
+    questionaire_dict=questionaire_dict, data_directory=data_directory,
+    experiment_name='ResolutionWR', data_fields=data_fields, monitor_distance=90)
 o.run()
