@@ -1,5 +1,7 @@
 A customizable and extendable whole report estimation experiment written in Psychopy (adapted from Adam, Vogel, & Awh, 2017). Designed for the desktop.
 
+![exp_example.gif]
+
 Author - Colin Quirk (cquirk@uchicago.edu)
 
 Repo: https://github.com/colinquirk/PsychopyResolutionWR
