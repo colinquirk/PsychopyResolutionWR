@@ -4,14 +4,19 @@ Author - Colin Quirk (cquirk@uchicago.edu)
 
 Repo: https://github.com/colinquirk/PsychopyResolutionWR
 
-...
+This is a working memory paradigm adapted from Adam, Vogel, Awh (2017) with minor differences.
+This code can either be used directly or it can be inherited and extended.
+If this file is run directly the defaults at the top of the page will be
+used. To make simple changes, you can adjust any of these files.
+For more in depth changes you will need to overwrite the methods yourself.
 
 Note: this code relies on my templateexperiments module. You can get
-them from https://github.com/colinquirk/templateexperiments and either put it in the same folder
-as this code or give the path to psychopy in the preferences.
+it from https://github.com/colinquirk/templateexperiments and either put it in the
+same folder as this code or give the path to psychopy in the preferences.
 
 Classes:
-...
+ResolutionWR -- The class that runs the experiment.
+    See 'print ResolutionWR.__doc__' for simple class docs or help(ResolutionWR) for everything.
 """
 
 
@@ -31,7 +36,7 @@ import template as template
 
 # Things you probably want to change
 set_sizes = [1, 2, 4, 6]
-trials_per_set_size = 5
+trials_per_set_size = 5  # per block
 number_of_blocks = 2
 
 iti_time = 1
@@ -120,7 +125,41 @@ psychopy.logging.console.setLevel(psychopy.logging.CRITICAL)  # Avoid error outp
 
 class ResolutionWR(template.BaseExperiment):
     """
-    ...
+    The class that runs the whole report estimation experiment.
+
+    Parameters:
+    colorwheel_path -- A string or Path describing the location of a json file containing
+        a 360 length array of length 3 rgb arrays.
+    data_directory -- Where the data should be saved.
+    delay_time -- The number of seconds between the stimuli display and test.
+    distance_from_fixation -- A number describing how far from fixation stimuli will
+        appear in visual degrees.
+    instruct_text -- The text to be displayed to the participant at the beginning of the experiment.
+    iti_time -- The number of seconds in between a response and the next trial.
+    min_color_dist -- The minimum number of degrees in color space between display items.
+    number_of_blocks -- The number of blocks in the experiment.
+    questionaire_dict -- Questions to be included in the dialog.
+    sample_time -- The number of seconds the stimuli are on the screen for.
+    set_sizes -- A list of all the set sizes.
+        An equal number of trials will be shown for each set size.
+    stim_size -- The size of the stimuli in visual degrees.
+    trials_per_set_size -- The number of trials per set size per block.
+
+    Methods:
+    calculate_locations -- Calculates locations for the upcoming trial with random jitter.
+    calculate_error -- Calculates error in a response compared to the true color value.
+    chdir -- Changes the directory to where the data will be saved.
+    display_blank -- Displays a blank screen.
+    display_break -- Displays a screen during the break between blocks.
+    display_stimuli -- Displays the stimuli.
+    draw_color_wheels -- Draws color wheels at stimuli locations with random rotation.
+    generate_color_indexes -- Generates colors for a trial given the minimum distance.
+    get_response -- Manages getting responses for all color wheels.
+    make_block -- Creates a list of trials to be run.
+    make_trial -- Creates a single trial dictionary.
+    run -- Runs the entire experiment including optional hooks.
+    run_trial -- Runs a single trial.
+    send_data -- Updates the experiment data with the information from the last trial.
     """
     def __init__(self, set_sizes=set_sizes, trials_per_set_size=trials_per_set_size,
                  number_of_blocks=number_of_blocks, distance_from_fixation=distance_from_fixation,
@@ -128,9 +167,7 @@ class ResolutionWR(template.BaseExperiment):
                  iti_time=iti_time, sample_time=sample_time, delay_time=delay_time,
                  data_directory=data_directory, questionaire_dict=questionaire_dict,
                  instruct_text=instruct_text, **kwargs):
-        """
-        ...
-        """
+
         self.set_sizes = set_sizes
         self.trials_per_set_size = trials_per_set_size
         self.number_of_blocks = number_of_blocks
@@ -165,7 +202,10 @@ class ResolutionWR(template.BaseExperiment):
 
     def _load_color_wheel(self, path):
         """
-        ...
+        Loads the json color wheel file.
+
+        Parameters:
+            path -- Str or Path of the json file.
         """
         with open(path) as f:
             color_wheel = json.load(f)
@@ -176,7 +216,10 @@ class ResolutionWR(template.BaseExperiment):
 
     def calculate_locations(self, set_size):
         """
-        ...
+        Calculates locations for the upcoming trial with random jitter.
+
+        Parameters:
+            set_size -- The number of locations to return.
         """
         angle_dist = 360 / set_size
         rotation = random.randint(0, angle_dist - 1)
@@ -190,7 +233,11 @@ class ResolutionWR(template.BaseExperiment):
 
     def _check_dist(self, attempt, colors):
         """
-        ...
+        Checks if a color attempt statistfies the distance condition.
+
+        Parameters:
+            attempt -- The color index to be checked.
+            colors -- The list of color indexes to be checked against.
         """
         for c in colors:
             raw_dist = abs(c - attempt)
@@ -203,7 +250,10 @@ class ResolutionWR(template.BaseExperiment):
 
     def generate_color_indexes(self, set_size):
         """
-        ...
+        Generates colors for a trial given the minimum distance.
+
+        Parameters:
+            set_size -- The number of colors to generate.
         """
         colors = []
 
@@ -216,7 +266,10 @@ class ResolutionWR(template.BaseExperiment):
 
     def make_trial(self, set_size):
         """
-        ...
+        Creates a single trial dictionary.
+
+        Parameters:
+            set_size -- The number of items to be displayed.
         """
         color_indexes = self.generate_color_indexes(set_size)
         color_values = [self.color_wheel[i] for i in color_indexes]
@@ -252,7 +305,10 @@ class ResolutionWR(template.BaseExperiment):
 
     def display_blank(self, wait_time):
         """
-        ...
+        Displays a blank screen.
+
+        Parameters:
+            wait_time -- The number of seconds to display the blank for.
         """
         self.experiment_window.flip()
 
@@ -260,7 +316,11 @@ class ResolutionWR(template.BaseExperiment):
 
     def display_stimuli(self, coordinates, colors):
         """
-        ...
+        Displays the stimuli.
+
+        Parameters:
+            coordinates -- A list of (x, y) tuples in visual degrees.
+            colors -- A list of -1 to 1 rgb color lists
         """
 
         for pos, color in zip(coordinates, colors):
@@ -274,7 +334,12 @@ class ResolutionWR(template.BaseExperiment):
 
     def draw_color_wheels(self, coordinates, wheel_rotations):
         """
-        ...
+        Draws color wheels at stimuli locations with random rotation.
+
+        Parameters:
+            coordinates -- A list of (x, y) tuples
+            wheel_rotations -- A list of 0:359 ints describing how much each wheel
+                should be rotated.
         """
         mask = np.zeros([100, 1])
         mask[-30:] = 1
@@ -289,7 +354,10 @@ class ResolutionWR(template.BaseExperiment):
 
     def _calc_mouse_color(self, mouse_pos):
         """
-        ...
+        Calculates the color of the pixel the mouse is hovering over.
+
+        Parameters:
+            mouse_pos -- A position returned by mouse.getPos()
         """
         frame = np.array(self.experiment_window._getFrame())  # Uses psychopy internal function
 
@@ -309,7 +377,11 @@ class ResolutionWR(template.BaseExperiment):
 
     def _calc_mouse_position(self, coordinates, mouse_pos):
         """
-        ...
+        Determines which position is closest to the mouse in order to display the hover preview.
+
+        Parameters:
+            coordinates -- A list of (x, y) tuples
+            mouse_pos -- A position returned by mouse.getPos()
         """
         dists = [np.linalg.norm(np.array(i) - np.array(mouse_pos) / 2) for i in coordinates]
         closest_dist = min(dists)
@@ -321,7 +393,14 @@ class ResolutionWR(template.BaseExperiment):
 
     def _response_loop(self, coordinates, wheel_rotations):
         """
-        ...
+        Handles the hover updating and response clicks
+
+        Slightly slow due to how psychopy handles clicks, so a full click and hold is needed.
+
+        Parameters:
+            coordinates -- A list of (x, y) tuples
+            wheel_rotations -- A list of 0:359 ints describing how much each wheel
+                should be rotated.
         """
         temp_coordinates = copy.copy(coordinates)
         temp_rotations = copy.copy(wheel_rotations)
@@ -372,7 +451,12 @@ class ResolutionWR(template.BaseExperiment):
 
     def get_response(self, coordinates, wheel_rotations):
         """
-        ...
+        Manages getting responses for all color wheels.
+
+        Parameters:
+            coordinates -- A list of (x, y) tuples
+            wheel_rotations -- A list of 0:359 ints describing how much each wheel
+                should be rotated.
         """
         if not self.mouse:
             self.mouse = psychopy.event.Mouse(visible=False, win=self.experiment_window)
@@ -388,7 +472,11 @@ class ResolutionWR(template.BaseExperiment):
 
     def calculate_error(self, color_index, resp_color):
         """
-        ...
+        Calculates error in a response compared to the true color value.
+
+        Parameters:
+            color_index -- The index of the true color values (0:359).
+            resp_color -- The rgb color that was selected.
         """
         row_index = np.where((self.color_wheel == resp_color).all(axis=1))[0]
 
@@ -412,13 +500,18 @@ class ResolutionWR(template.BaseExperiment):
         afterwards.
 
         Parameters:
-        data -- A dict where keys exist in data_fields and values are to be saved.
+            data -- A dict where keys exist in data_fields and values are to be saved.
         """
         self.update_experiment_data(data)
 
     def run_trial(self, trial, block_num, trial_num):
         """
-        ...
+        Runs a single trial.
+
+        Parameters:
+            trial -- A dictionary returned by make_trial().
+            block_num -- The block number to be saved in the output csv.
+            trial_num -- The trial number to be saved in the output csv.
         """
         self.display_blank(self.iti_time)
         self.display_stimuli(trial['locations'], trial['color_values'])
@@ -449,8 +542,7 @@ class ResolutionWR(template.BaseExperiment):
         return data
 
     def display_break(self):
-        """Displays a break screen in between blocks.
-        """
+        """Displays a break screen in between blocks."""
 
         break_text = 'Please take a short break. Press space to continue.'
         self.display_text_screen(text=break_text, bg_color=[204, 255, 204])
@@ -458,8 +550,28 @@ class ResolutionWR(template.BaseExperiment):
     def run(self, setup_hook=None, before_first_trial_hook=None, pre_block_hook=None,
             pre_trial_hook=None, post_trial_hook=None, post_block_hook=None,
             end_experiment_hook=None):
-        """
-        ...
+        """Runs the entire experiment.
+
+        This function takes a number of hooks that allow you to alter behavior of the experiment
+        without having to completely rewrite the run function. While large changes will still
+        require you to create a subclass, small changes like adding a practice block or
+        performance feedback screen can be implimented using these hooks. All hooks take in the
+        experiment object as the first argument. See below for other parameters sent to hooks.
+
+        Parameters:
+            setup_hook -- takes self, executed once the window is open.
+            before_first_trial_hook -- takes self, executed after instructions are displayed.
+            pre_block_hook -- takes self, block list, and block num
+                Executed immediately before block start.
+                Can optionally return an altered block list.
+            pre_trial_hook -- takes self, trial dict, block num, and trial num
+                Executed immediately before trial start.
+                Can optionally return an altered trial dict.
+            post_trial_hook -- takes self and the trial data, executed immediately after trial end.
+                Can optionally return altered trial data to be stored.
+            post_block_hook -- takes self, executed at end of block before break screen (including
+                last block).
+            end_experiment_hook -- takes self, executed immediately before end experiment screen.
         """
         self.chdir()
 
