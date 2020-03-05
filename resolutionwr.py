@@ -29,10 +29,39 @@ import psychopy
 
 import template as template
 
+# Things you probably want to change
+set_sizes = [1, 2, 4, 6]
+trials_per_set_size = 5
+number_of_blocks = 2
+
+sample_time = 2
+monitor_distance = 90
+
 experiment_name = 'ResolutionWR'
 
 data_directory = os.path.join(
     os.path.expanduser('~'), 'Desktop', experiment_name, 'Data')
+
+instruct_text = [
+    ('Welcome to the experiment. Press space to begin.'),
+    ('In this experiment you will be remembering colors.\n\n'
+     'Each trial will start with a blank screen.\n'
+     'Then, a number of circles with different colors will appear.\n'
+     'Remember as many colors as you can.\n\n'
+     'After a short delay, color wheels will appear.\n\n'
+     'Match the color wheel to the color that appeared in that position.\n'
+     'Click the mouse button until the wheel disappears.\n'
+     'If you are not sure, just take your best guess.\n\n'
+     'You will get breaks in between blocks.\n\n'
+     'Press space to start.'),
+]
+
+# Things you probably don't need to change, but can if you want to
+colorwheel_path = 'colors.json'
+
+distance_from_fixation = 6
+stim_size = 1.5
+min_color_dist = 25
 
 data_fields = [
     'Subject',
@@ -82,6 +111,8 @@ questionaire_dict = {
     'Race': race_options,
 }
 
+# This is the logic that runs the experiment
+# Change anything below this comment at your own risk
 psychopy.logging.console.setLevel(psychopy.logging.CRITICAL)  # Avoid error output
 
 
@@ -89,8 +120,9 @@ class ResolutionWR(template.BaseExperiment):
     """
     ...
     """
-    def __init__(self, set_sizes, trials_per_set_size, number_of_blocks, distance_from_fixation, min_color_dist,
-                 colorwheel_path, stim_size, sample_time, data_directory, questionaire_dict, **kwargs):
+    def __init__(self, set_sizes, trials_per_set_size, number_of_blocks, distance_from_fixation,
+                 min_color_dist, colorwheel_path, stim_size, sample_time, data_directory,
+                 questionaire_dict, instruct_text, **kwargs):
         """
         ...
         """
@@ -103,6 +135,8 @@ class ResolutionWR(template.BaseExperiment):
 
         self.questionaire_dict = questionaire_dict
         self.data_directory = data_directory
+
+        self.instruct_text = instruct_text
 
         self.min_color_dist = min_color_dist
 
@@ -272,6 +306,9 @@ class ResolutionWR(template.BaseExperiment):
         self.experiment_window.flip()
 
         while True:
+            if psychopy.event.getKeys(keyList=['q']):
+                self.quit_experiment()
+
             (lclick, _, _), (rt, _, _) = self.mouse.getPressed(getTime=True)
 
             mouse_pos = self.mouse.getPos()
@@ -306,6 +343,7 @@ class ResolutionWR(template.BaseExperiment):
             self.mouse = psychopy.event.Mouse(visible=False, win=self.experiment_window)
 
         self.mouse.setVisible(1)
+        psychopy.event.clearEvents()
 
         resp_colors, rts, click_order = self._response_loop(coordinates, wheel_rotations)
 
@@ -369,6 +407,13 @@ class ResolutionWR(template.BaseExperiment):
 
         return data
 
+    def display_break(self):
+        """Displays a break screen in between blocks.
+        """
+
+        break_text = 'Please take a short break. Press space to continue.'
+        self.display_text_screen(text=break_text, bg_color=[204, 255, 204])
+
     def run(self):
         self.chdir()
 
@@ -383,12 +428,17 @@ class ResolutionWR(template.BaseExperiment):
         self.open_window(screen=0)
         self.display_text_screen('Loading...', wait_for_input=False)
 
+        for instruction in self.instruct_text:
+            self.display_text_screen(text=instruction)
+
         for block_num in range(self.number_of_blocks):
             block = self.make_block()
             for trial_num, trial in enumerate(block):
                 data = self.run_trial(trial, block_num, trial_num)
                 self.send_data(data)
             self.save_data_to_csv()
+            if block_num + 1 != self.number_of_blocks:
+                self.display_break()
 
         self.display_text_screen(
             'The experiment is now over, please get your experimenter.',
@@ -398,8 +448,11 @@ class ResolutionWR(template.BaseExperiment):
 
 
 o = ResolutionWR(
-    set_sizes=[1, 4], trials_per_set_size=5, number_of_blocks=2, distance_from_fixation=8,
-    colorwheel_path='colors.json', stim_size=1.5, sample_time=2, min_color_dist=25,
-    questionaire_dict=questionaire_dict, data_directory=data_directory,
-    experiment_name='ResolutionWR', data_fields=data_fields, monitor_distance=90)
+    set_sizes=set_sizes, trials_per_set_size=trials_per_set_size,
+    number_of_blocks=number_of_blocks, distance_from_fixation=distance_from_fixation,
+    colorwheel_path=colorwheel_path, stim_size=stim_size, sample_time=sample_time,
+    min_color_dist=min_color_dist, questionaire_dict=questionaire_dict,
+    data_directory=data_directory, experiment_name=experiment_name,
+    instruct_text=instruct_text, data_fields=data_fields,
+    monitor_distance=monitor_distance)
 o.run()
