@@ -72,6 +72,7 @@ min_color_dist = 25  # should be > 360 / max(set_sizes)
 
 data_fields = [
     'Subject',
+    'Session',
     'Block',
     'Trial',
     'LocationNumber',
@@ -189,6 +190,83 @@ class ResolutionWR(template.BaseExperiment):
         self.mouse = None
 
         super().__init__(**kwargs)
+
+    def save_experiment_info(self, filename=None):
+        """Writes the info from the dialog box to a json file.
+
+        This method overwrites the base method in order to include the session number in the filename.
+
+        Parameters:
+            filename -- a string defining the filename with no extension
+        """
+
+        ext = '.json'
+
+        if filename is None:
+            filename = (self.experiment_name + '_' +
+                        self.experiment_info['Subject Number'].zfill(3) + '_' +
+                        str(self.experiment_info['Session']).zfill(3) +
+                        '_info')
+        elif filename[-5:] == ext:
+            filename = filename[:-5]
+
+        if os.path.isfile(filename + ext):
+            if self.overwrite_ok is None:
+                self.overwrite_ok = self._confirm_overwrite()
+            if not self.overwrite_ok:
+                # If the file exists make a new filename
+                i = 1
+                new_filename = filename + '(' + str(i) + ')'
+                while os.path.isfile(new_filename + ext):
+                    i += 1
+                    new_filename = filename + '(' + str(i) + ')'
+                filename = new_filename
+
+        filename = filename + ext
+
+        with open(filename, 'w') as info_file:
+            info_file.write(json.dumps(self.experiment_info))
+
+    def open_csv_data_file(self, data_filename=None):
+        """Opens the csv file and writes the header.
+
+        This method overwrites the base method in order to include the session number in the filename.
+
+        Parameters:
+            data_filename -- name of the csv file with no extension
+                (defaults to experimentname_subjectnumber).
+        """
+
+        if data_filename is None:
+            data_filename = (self.experiment_name + '_' +
+                             self.experiment_info['Subject Number'].zfill(3) + '_' +
+                             str(self.experiment_info['Session']).zfill(3))
+        elif data_filename[-4:] == '.csv':
+            data_filename = data_filename[:-4]
+
+        if os.path.isfile(data_filename + '.csv'):
+            if self.overwrite_ok is None:
+                self.overwrite_ok = self._confirm_overwrite()
+            if not self.overwrite_ok:
+                # If the file exists and we can't overwrite make a new filename
+                i = 1
+                new_filename = data_filename + '(' + str(i) + ')'
+                while os.path.isfile(new_filename + '.csv'):
+                    i += 1
+                    new_filename = data_filename + '(' + str(i) + ')'
+                data_filename = new_filename
+
+        self.experiment_data_filename = data_filename + '.csv'
+
+        # Write the header
+        with open(self.experiment_data_filename, 'w+') as data_file:
+            for field in self.data_fields:
+                data_file.write('"')
+                data_file.write(field)
+                data_file.write('"')
+                if field != self.data_fields[-1]:
+                    data_file.write(',')
+            data_file.write('\n')
 
     def chdir(self):
         """Changes the directory to where the data will be saved."""
@@ -524,6 +602,7 @@ class ResolutionWR(template.BaseExperiment):
         for i, (color, rt, click) in enumerate(zip(resp_colors, rts, click_order)):
             data.append({
                 'Subject': self.experiment_info['Subject Number'],
+                'Session': self.experiment_info['Session'],
                 'Block': block_num,
                 'Trial': trial_num,
                 'LocationNumber': i + 1,
