@@ -140,7 +140,6 @@ class ResolutionWR(template.BaseExperiment):
 
         self.questionaire_dict = questionaire_dict
         self.data_directory = data_directory
-
         self.instruct_text = instruct_text
 
         self.min_color_dist = min_color_dist
@@ -150,7 +149,6 @@ class ResolutionWR(template.BaseExperiment):
         self.delay_time = delay_time
 
         self.color_wheel = self._load_color_wheel(colorwheel_path)
-
         self.mouse = None
 
         super().__init__(**kwargs)
