@@ -34,7 +34,9 @@ set_sizes = [1, 2, 4, 6]
 trials_per_set_size = 5
 number_of_blocks = 2
 
+iti_time = 1
 sample_time = 2
+delay_time = 1
 monitor_distance = 90
 
 experiment_name = 'ResolutionWR'
@@ -59,9 +61,9 @@ instruct_text = [
 # Things you probably don't need to change, but can if you want to
 colorwheel_path = 'colors.json'
 
-distance_from_fixation = 6
-stim_size = 1.5
-min_color_dist = 25
+distance_from_fixation = 6  # visual degrees
+stim_size = 1.5  # visual degrees
+min_color_dist = 25  # should be > 360 / max(set_sizes)
 
 data_fields = [
     'Subject',
@@ -120,9 +122,12 @@ class ResolutionWR(template.BaseExperiment):
     """
     ...
     """
-    def __init__(self, set_sizes, trials_per_set_size, number_of_blocks, distance_from_fixation,
-                 min_color_dist, colorwheel_path, stim_size, sample_time, data_directory,
-                 questionaire_dict, instruct_text, **kwargs):
+    def __init__(self, set_sizes=set_sizes, trials_per_set_size=trials_per_set_size,
+                 number_of_blocks=number_of_blocks, distance_from_fixation=distance_from_fixation,
+                 min_color_dist=min_color_dist, colorwheel_path=colorwheel_path, stim_size=stim_size,
+                 iti_time=iti_time, sample_time=sample_time, delay_time=delay_time,
+                 data_directory=data_directory, questionaire_dict=questionaire_dict,
+                 instruct_text=instruct_text, **kwargs):
         """
         ...
         """
@@ -140,7 +145,9 @@ class ResolutionWR(template.BaseExperiment):
 
         self.min_color_dist = min_color_dist
 
+        self.iti_time = iti_time
         self.sample_time = sample_time
+        self.delay_time = delay_time
 
         self.color_wheel = self._load_color_wheel(colorwheel_path)
 
@@ -159,6 +166,9 @@ class ResolutionWR(template.BaseExperiment):
         os.chdir(self.data_directory)
 
     def _load_color_wheel(self, path):
+        """
+        ...
+        """
         with open(path) as f:
             color_wheel = json.load(f)
 
@@ -167,6 +177,9 @@ class ResolutionWR(template.BaseExperiment):
         return np.array(color_wheel)
 
     def calculate_locations(self, set_size):
+        """
+        ...
+        """
         angle_dist = 360 / set_size
         rotation = random.randint(0, angle_dist - 1)
         angles = [int(i * angle_dist + rotation + random.randint(-5, 5)) for i in range(set_size)]
@@ -178,6 +191,9 @@ class ResolutionWR(template.BaseExperiment):
         return locations
 
     def _check_dist(self, attempt, colors):
+        """
+        ...
+        """
         for c in colors:
             raw_dist = abs(c - attempt)
             dist = min(raw_dist, 360 - raw_dist)
@@ -188,6 +204,9 @@ class ResolutionWR(template.BaseExperiment):
         return True
 
     def generate_color_indexes(self, set_size):
+        """
+        ...
+        """
         colors = []
 
         while len(colors) < set_size:
@@ -198,6 +217,9 @@ class ResolutionWR(template.BaseExperiment):
         return colors
 
     def make_trial(self, set_size):
+        """
+        ...
+        """
         color_indexes = self.generate_color_indexes(set_size)
         color_values = [self.color_wheel[i] for i in color_indexes]
         wheel_rotations = [random.randint(0, 359) for _ in range(set_size)]
@@ -253,6 +275,9 @@ class ResolutionWR(template.BaseExperiment):
         psychopy.core.wait(self.sample_time)
 
     def draw_color_wheels(self, coordinates, wheel_rotations):
+        """
+        ...
+        """
         mask = np.zeros([100, 1])
         mask[-30:] = 1
 
@@ -265,6 +290,9 @@ class ResolutionWR(template.BaseExperiment):
                 angularCycles=1, interpolate=False, size=self.stim_size * 2).draw()
 
     def _calc_mouse_color(self, mouse_pos):
+        """
+        ...
+        """
         frame = np.array(self.experiment_window._getFrame())  # Uses psychopy internal function
 
         x_correction = self.experiment_window.size[0] / 2
@@ -282,6 +310,9 @@ class ResolutionWR(template.BaseExperiment):
         return color
 
     def _calc_mouse_position(self, coordinates, mouse_pos):
+        """
+        ...
+        """
         dists = [np.linalg.norm(np.array(i) - np.array(mouse_pos) / 2) for i in coordinates]
         closest_dist = min(dists)
 
@@ -291,6 +322,9 @@ class ResolutionWR(template.BaseExperiment):
             return None
 
     def _response_loop(self, coordinates, wheel_rotations):
+        """
+        ...
+        """
         temp_coordinates = copy.copy(coordinates)
         temp_rotations = copy.copy(wheel_rotations)
 
@@ -339,6 +373,9 @@ class ResolutionWR(template.BaseExperiment):
             self.experiment_window.flip()
 
     def get_response(self, coordinates, wheel_rotations):
+        """
+        ...
+        """
         if not self.mouse:
             self.mouse = psychopy.event.Mouse(visible=False, win=self.experiment_window)
 
@@ -352,6 +389,9 @@ class ResolutionWR(template.BaseExperiment):
         return resp_colors, rts, click_order
 
     def calculate_error(self, color_index, resp_color):
+        """
+        ...
+        """
         row_index = np.where((self.color_wheel == resp_color).all(axis=1))[0]
 
         if row_index.shape[0] < 1:
@@ -379,9 +419,12 @@ class ResolutionWR(template.BaseExperiment):
         self.update_experiment_data(data)
 
     def run_trial(self, trial, block_num, trial_num):
-        self.display_blank(1)
+        """
+        ...
+        """
+        self.display_blank(self.iti_time)
         self.display_stimuli(trial['locations'], trial['color_values'])
-        self.display_blank(1)
+        self.display_blank(self.delay_time)
         resp_colors, rts, click_order = self.get_response(trial['locations'], trial['wheel_rotations'])
 
         data = []
@@ -414,7 +457,12 @@ class ResolutionWR(template.BaseExperiment):
         break_text = 'Please take a short break. Press space to continue.'
         self.display_text_screen(text=break_text, bg_color=[204, 255, 204])
 
-    def run(self):
+    def run(self, setup_hook=None, before_first_trial_hook=None, pre_block_hook=None,
+            pre_trial_hook=None, post_trial_hook=None, post_block_hook=None,
+            end_experiment_hook=None):
+        """
+        ...
+        """
         self.chdir()
 
         ok = self.get_experiment_info_from_dialog(self.questionaire_dict)
@@ -428,17 +476,48 @@ class ResolutionWR(template.BaseExperiment):
         self.open_window(screen=0)
         self.display_text_screen('Loading...', wait_for_input=False)
 
+        if setup_hook is not None:
+            setup_hook(self)
+
         for instruction in self.instruct_text:
             self.display_text_screen(text=instruction)
 
+        if before_first_trial_hook is not None:
+            before_first_trial_hook(self)
+
         for block_num in range(self.number_of_blocks):
             block = self.make_block()
+
+            if pre_block_hook is not None:
+                tmp = pre_block_hook(self, block, block_num)
+                if tmp is not None:
+                    block = tmp
+
             for trial_num, trial in enumerate(block):
+                if pre_trial_hook is not None:
+                    tmp = pre_trial_hook(self, trial, block_num, trial_num)
+                    if tmp is not None:
+                        trial = tmp
+
                 data = self.run_trial(trial, block_num, trial_num)
+
+                if post_trial_hook is not None:
+                    tmp = post_trial_hook(self, data)
+                    if tmp is not None:
+                        data = tmp
+
                 self.send_data(data)
+
             self.save_data_to_csv()
+
+            if post_block_hook is not None:
+                post_block_hook(self)
+
             if block_num + 1 != self.number_of_blocks:
                 self.display_break()
+
+        if end_experiment_hook is not None:
+            end_experiment_hook(self)
 
         self.display_text_screen(
             'The experiment is now over, please get your experimenter.',
@@ -447,12 +526,14 @@ class ResolutionWR(template.BaseExperiment):
         self.quit_experiment()
 
 
-o = ResolutionWR(
-    set_sizes=set_sizes, trials_per_set_size=trials_per_set_size,
-    number_of_blocks=number_of_blocks, distance_from_fixation=distance_from_fixation,
-    colorwheel_path=colorwheel_path, stim_size=stim_size, sample_time=sample_time,
-    min_color_dist=min_color_dist, questionaire_dict=questionaire_dict,
-    data_directory=data_directory, experiment_name=experiment_name,
-    instruct_text=instruct_text, data_fields=data_fields,
-    monitor_distance=monitor_distance)
-o.run()
+# If you call this script directly, the task will run with your defaults
+if __name__ == '__main__':
+    exp = ResolutionWR(
+        # BaseExperiment parameters
+        experiment_name=experiment_name,
+        data_fields=data_fields,
+        monitor_distance=monitor_distance,
+        # Custom parameters go here
+    )
+
+    exp.run()
