@@ -14,9 +14,7 @@ used. To make simple changes, you can adjust any of these parameters or use the 
 For more in depth changes you will need to overwrite the methods yourself.
 
 **Note**: this code relies on my templateexperiments module. You can get it from
-https://github.com/colinquirk/templateexperiments and either put it in the same folder as this
-code or give the path to psychopy in the preferences.
-
+https://github.com/colinquirk/templateexperiments. The simplest way to set it up is to move the template.py file into this folder (next to resolutionwr.py). Alterntively, you can give the path to psychopy in the preferences.
 
 
 ### Classes
